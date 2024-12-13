@@ -23,30 +23,30 @@ namespace nadena.dev.modular_avatar.core.editor
         // Licensed under the MIT License
         private static string[][] boneNamePatterns = new[]
         {
-            new[] {"Hips", "Hip"},
+            new[] {"Hips", "Hip", "pelvis"},
             new[]
             {
                 "LeftUpperLeg", "UpperLeg_Left", "UpperLeg_L", "Leg_Left", "Leg_L", "ULeg_L", "Left leg", "LeftUpLeg",
-                "UpLeg.L"
+                "UpLeg.L", "Thigh_L"
             },
             new[]
             {
                 "RightUpperLeg", "UpperLeg_Right", "UpperLeg_R", "Leg_Right", "Leg_R", "ULeg_R", "Right leg",
-                "RightUpLeg", "UpLeg.R"
+                "RightUpLeg", "UpLeg.R", "Thigh_R"
             },
             new[]
             {
-                "LeftLowerLeg", "LowerLeg_Left", "LowerLeg_L", "Knee_Left", "Knee_L", "LLeg_L", "Left knee", "LeftLeg"
+                "LeftLowerLeg", "LowerLeg_Left", "LowerLeg_L", "Knee_Left", "Knee_L", "LLeg_L", "Left knee", "LeftLeg", "leg_L", "shin.L"
             },
             new[]
             {
                 "RightLowerLeg", "LowerLeg_Right", "LowerLeg_R", "Knee_Right", "Knee_R", "LLeg_R", "Right knee",
-                "RightLeg"
+                "RightLeg", "leg_R", "shin.R"
             },
             new[] {"LeftFoot", "Foot_Left", "Foot_L", "Ankle_L", "Foot.L.001", "Left ankle", "heel.L", "heel"},
             new[] {"RightFoot", "Foot_Right", "Foot_R", "Ankle_R", "Foot.R.001", "Right ankle", "heel.R", "heel"},
-            new[] {"Spine"},
-            new[] {"Chest", "Bust"},
+            new[] {"Spine", "spine01"},
+            new[] {"Chest", "Bust", "spine02", "upper_chest"},
             new[] {"Neck"},
             new[] {"Head"},
             new[] {"LeftShoulder", "Shoulder_Left", "Shoulder_L"},
@@ -60,8 +60,8 @@ namespace nadena.dev.modular_avatar.core.editor
                 "RightUpperArm", "UpperArm_Right", "UpperArm_R", "Arm_Right", "Arm_R", "UArm_R", "Right arm",
                 "UpperRightArm"
             },
-            new[] {"LeftLowerArm", "LowerArm_Left", "LowerArm_L", "LArm_L", "Left elbow", "LeftForeArm", "Elbow_L"},
-            new[] {"RightLowerArm", "LowerArm_Right", "LowerArm_R", "LArm_R", "Right elbow", "RightForeArm", "Elbow_R"},
+            new[] {"LeftLowerArm", "LowerArm_Left", "LowerArm_L", "LArm_L", "Left elbow", "LeftForeArm", "Elbow_L", "forearm_L", "ForArm_L"},
+            new[] {"RightLowerArm", "LowerArm_Right", "LowerArm_R", "LArm_R", "Right elbow", "RightForeArm", "Elbow_R", "forearm_R", "ForArm_R"},
             new[] {"LeftHand", "Hand_Left", "Hand_L", "Left wrist", "Wrist_L"},
             new[] {"RightHand", "Hand_Right", "Hand_R", "Right wrist", "Wrist_R"},
             new[]
@@ -80,168 +80,179 @@ namespace nadena.dev.modular_avatar.core.editor
             new[]
             {
                 "LeftThumbProximal", "ProximalThumb_Left", "ProximalThumb_L", "Thumb1_L", "ThumbFinger1_L",
-                "LeftHandThumb1", "Thumb Proximal.L", "Thunb1_L"
+                "LeftHandThumb1", "Thumb Proximal.L", "Thunb1_L", "finger01_01_L"
             },
             new[]
             {
                 "LeftThumbIntermediate", "IntermediateThumb_Left", "IntermediateThumb_L", "Thumb2_L", "ThumbFinger2_L",
-                "LeftHandThumb2", "Thumb Intermediate.L", "Thunb2_L"
+                "LeftHandThumb2", "Thumb Intermediate.L", "Thunb2_L", "finger01_02_L"
             },
             new[]
             {
                 "LeftThumbDistal", "DistalThumb_Left", "DistalThumb_L", "Thumb3_L", "ThumbFinger3_L", "LeftHandThumb3",
-                "Thumb Distal.L", "Thunb3_L"
+                "Thumb Distal.L", "Thunb3_L", "finger01_03_L"
             },
             new[]
             {
                 "LeftIndexProximal", "ProximalIndex_Left", "ProximalIndex_L", "Index1_L", "IndexFinger1_L",
-                "LeftHandIndex1", "Index Proximal.L"
+                "LeftHandIndex1", "Index Proximal.L", "finger02_01_L", "f_index.01.L"
             },
             new[]
             {
                 "LeftIndexIntermediate", "IntermediateIndex_Left", "IntermediateIndex_L", "Index2_L", "IndexFinger2_L",
-                "LeftHandIndex2", "Index Intermediate.L"
+                "LeftHandIndex2", "Index Intermediate.L", "finger02_02_L", "f_index.02.L"
             },
             new[]
             {
                 "LeftIndexDistal", "DistalIndex_Left", "DistalIndex_L", "Index3_L", "IndexFinger3_L", "LeftHandIndex3",
-                "Index Distal.L"
+                "Index Distal.L", "finger02_03_L", "f_index.03.L"
             },
             new[]
             {
                 "LeftMiddleProximal", "ProximalMiddle_Left", "ProximalMiddle_L", "Middle1_L", "MiddleFinger1_L",
-                "LeftHandMiddle1", "Middle Proximal.L"
+                "LeftHandMiddle1", "Middle Proximal.L", "finger03_01_L", "f_middle.01.L"
             },
             new[]
             {
                 "LeftMiddleIntermediate", "IntermediateMiddle_Left", "IntermediateMiddle_L", "Middle2_L",
-                "MiddleFinger2_L", "LeftHandMiddle2", "Middle Intermediate.L"
+                "MiddleFinger2_L", "LeftHandMiddle2", "Middle Intermediate.L", "finger03_02_L", "f_middle.02.L"
             },
             new[]
             {
                 "LeftMiddleDistal", "DistalMiddle_Left", "DistalMiddle_L", "Middle3_L", "MiddleFinger3_L",
-                "LeftHandMiddle3", "Middle Distal.L"
+                "LeftHandMiddle3", "Middle Distal.L", "finger03_03_L", "f_middle.03.L"
             },
             new[]
             {
                 "LeftRingProximal", "ProximalRing_Left", "ProximalRing_L", "Ring1_L", "RingFinger1_L", "LeftHandRing1",
-                "Ring Proximal.L"
+                "Ring Proximal.L", "finger04_01_L", "f_ring.01.L"
             },
             new[]
             {
                 "LeftRingIntermediate", "IntermediateRing_Left", "IntermediateRing_L", "Ring2_L", "RingFinger2_L",
-                "LeftHandRing2", "Ring Intermediate.L"
+                "LeftHandRing2", "Ring Intermediate.L", "finger04_02_L", "f_ring.02.L"
             },
             new[]
             {
                 "LeftRingDistal", "DistalRing_Left", "DistalRing_L", "Ring3_L", "RingFinger3_L", "LeftHandRing3",
-                "Ring Distal.L"
+                "Ring Distal.L", "finger04_03_L", "f_ring.03.L"
             },
             new[]
             {
                 "LeftLittleProximal", "ProximalLittle_Left", "ProximalLittle_L", "Little1_L", "LittleFinger1_L",
-                "LeftHandPinky1", "Little Proximal.L"
+                "LeftHandPinky1", "Little Proximal.L", "finger05_01_L", "f_pinky.01.L"
             },
             new[]
             {
                 "LeftLittleIntermediate", "IntermediateLittle_Left", "IntermediateLittle_L", "Little2_L",
-                "LittleFinger2_L", "LeftHandPinky2", "Little Intermediate.L"
+                "LittleFinger2_L", "LeftHandPinky2", "Little Intermediate.L", "finger05_02_L", "f_pinky.02.L"
             },
             new[]
             {
                 "LeftLittleDistal", "DistalLittle_Left", "DistalLittle_L", "Little3_L", "LittleFinger3_L",
-                "LeftHandPinky3", "Little Distal.L"
+                "LeftHandPinky3", "Little Distal.L", "finger05_03_L", "f_pinky.03.L"
             },
             new[]
             {
                 "RightThumbProximal", "ProximalThumb_Right", "ProximalThumb_R", "Thumb1_R", "ThumbFinger1_R",
-                "RightHandThumb1", "Thumb Proximal.R", "Thunb1_R"
+                "RightHandThumb1", "Thumb Proximal.R", "Thunb1_R", "finger01_01_R"
             },
             new[]
             {
                 "RightThumbIntermediate", "IntermediateThumb_Right", "IntermediateThumb_R", "Thumb2_R",
-                "ThumbFinger2_R", "RightHandThumb2", "Thumb Intermediate.R", "Thunb2_R"
+                "ThumbFinger2_R", "RightHandThumb2", "Thumb Intermediate.R", "Thunb2_R", "finger01_02_R"
             },
             new[]
             {
                 "RightThumbDistal", "DistalThumb_Right", "DistalThumb_R", "Thumb3_R", "ThumbFinger3_R",
-                "RightHandThumb3", "Thumb Distal.R", "Thunb3_R"
+                "RightHandThumb3", "Thumb Distal.R", "Thunb3_R", "finger01_03_R"
             },
             new[]
             {
                 "RightIndexProximal", "ProximalIndex_Right", "ProximalIndex_R", "Index1_R", "IndexFinger1_R",
-                "RightHandIndex1", "Index Proximal.R"
+                "RightHandIndex1", "Index Proximal.R", "finger02_01_R", "f_index.01.R"
             },
             new[]
             {
                 "RightIndexIntermediate", "IntermediateIndex_Right", "IntermediateIndex_R", "Index2_R",
-                "IndexFinger2_R", "RightHandIndex2", "Index Intermediate.R"
+                "IndexFinger2_R", "RightHandIndex2", "Index Intermediate.R", "finger02_02_R", "f_index.02.R"
             },
             new[]
             {
                 "RightIndexDistal", "DistalIndex_Right", "DistalIndex_R", "Index3_R", "IndexFinger3_R",
-                "RightHandIndex3", "Index Distal.R"
+                "RightHandIndex3", "Index Distal.R", "finger02_03_R", "f_index.03.R"
             },
             new[]
             {
                 "RightMiddleProximal", "ProximalMiddle_Right", "ProximalMiddle_R", "Middle1_R", "MiddleFinger1_R",
-                "RightHandMiddle1", "Middle Proximal.R"
+                "RightHandMiddle1", "Middle Proximal.R", "finger03_01_R", "f_middle.01.R"
             },
             new[]
             {
                 "RightMiddleIntermediate", "IntermediateMiddle_Right", "IntermediateMiddle_R", "Middle2_R",
-                "MiddleFinger2_R", "RightHandMiddle2", "Middle Intermediate.R"
+                "MiddleFinger2_R", "RightHandMiddle2", "Middle Intermediate.R", "finger03_02_R", "f_middle.02.R"
             },
             new[]
             {
                 "RightMiddleDistal", "DistalMiddle_Right", "DistalMiddle_R", "Middle3_R", "MiddleFinger3_R",
-                "RightHandMiddle3", "Middle Distal.R"
+                "RightHandMiddle3", "Middle Distal.R", "finger03_03_R", "f_middle.03.R"
             },
             new[]
             {
                 "RightRingProximal", "ProximalRing_Right", "ProximalRing_R", "Ring1_R", "RingFinger1_R",
-                "RightHandRing1", "Ring Proximal.R"
+                "RightHandRing1", "Ring Proximal.R", "finger04_01_R", "f_ring.01.R"
             },
             new[]
             {
                 "RightRingIntermediate", "IntermediateRing_Right", "IntermediateRing_R", "Ring2_R", "RingFinger2_R",
-                "RightHandRing2", "Ring Intermediate.R"
+                "RightHandRing2", "Ring Intermediate.R", "finger04_02_R", "f_ring.02.R"
             },
             new[]
             {
                 "RightRingDistal", "DistalRing_Right", "DistalRing_R", "Ring3_R", "RingFinger3_R", "RightHandRing3",
-                "Ring Distal.R"
+                "Ring Distal.R", "finger04_03_R", "f_ring.03.R"
             },
             new[]
             {
                 "RightLittleProximal", "ProximalLittle_Right", "ProximalLittle_R", "Little1_R", "LittleFinger1_R",
-                "RightHandPinky1", "Little Proximal.R"
+                "RightHandPinky1", "Little Proximal.R", "finger05_01_R", "f_pinky.01.R"
             },
             new[]
             {
                 "RightLittleIntermediate", "IntermediateLittle_Right", "IntermediateLittle_R", "Little2_R",
-                "LittleFinger2_R", "RightHandPinky2", "Little Intermediate.R"
+                "LittleFinger2_R", "RightHandPinky2", "Little Intermediate.R", "finger05_02_R", "f_pinky.02.R"
             },
             new[]
             {
                 "RightLittleDistal", "DistalLittle_Right", "DistalLittle_R", "Little3_R", "LittleFinger3_R",
-                "RightHandPinky3", "Little Distal.R"
+                "RightHandPinky3", "Little Distal.R", "finger05_03_R", "f_pinky.03.R"
             },
             new[] {"UpperChest", "UChest"},
         };
         
         internal static readonly Regex Regex_VRM_Bone = new Regex(@"^([LRC])_(.*)$");
+        
+        internal static ImmutableHashSet<string> AllBoneNames = 
+            boneNamePatterns.SelectMany(x => x).Select(NormalizeName).ToImmutableHashSet();
 
         internal static string NormalizeName(string name)
         {
             name = name.ToLowerInvariant();
-            name = Regex.Replace(name, "[0-9 ._]", "");
+            name = Regex.Replace(name, "^bone_|[0-9 ._]", "");
 
             return name;
         }
 
         internal static readonly ImmutableDictionary<string, List<HumanBodyBones>> NameToBoneMap;
         internal static readonly ImmutableDictionary<HumanBodyBones, ImmutableList<string>> BoneToNameMap;
+
+        [InitializeOnLoadMethod]
+        private static void InsertboneNamePatternsToRuntime()
+        {
+            ModularAvatarMergeArmature.boneNamePatterns = boneNamePatterns;
+            ModularAvatarMergeArmature.AllBoneNames = AllBoneNames;
+            ModularAvatarMergeArmature.NormalizeBoneName = NormalizeName;
+        }
 
         static HeuristicBoneMapper()
         {
@@ -306,7 +317,9 @@ namespace nadena.dev.modular_avatar.core.editor
             GameObject src,
             GameObject newParent,
             List<Transform> skipped = null,
-            HashSet<Transform> unassigned = null
+            HashSet<Transform> unassigned = null,
+            Animator avatarAnimator = null,
+            Dictionary<Transform, HumanBodyBones> outfitHumanoidBones = null
         )
         {
             Dictionary<Transform, Transform> mappings = new Dictionary<Transform, Transform>();
@@ -355,21 +368,65 @@ namespace nadena.dev.modular_avatar.core.editor
                 var childName = child.gameObject.name;
                 var targetObjectName = childName.Substring(config.prefix.Length,
                     childName.Length - config.prefix.Length - config.suffix.Length);
-                
-                if (!NameToBoneMap.TryGetValue(
-                        NormalizeName(targetObjectName), out var bodyBones))
+                List<HumanBodyBones> bodyBones = null;
+                var isMapped = false;
+
+                if (outfitHumanoidBones != null && outfitHumanoidBones.TryGetValue(child, out var outfitHumanoidBone))
+                {
+                    if (avatarAnimator != null)
+                    {
+                        var avatarBone = avatarAnimator.GetBoneTransform(outfitHumanoidBone);
+                        if (avatarBone != null && unassigned.Contains(avatarBone))
+                        {
+                            mappings[child] = avatarBone;
+                            unassigned.Remove(avatarBone);
+                            lcNameToXform.Remove(NormalizeName(avatarBone.gameObject.name));
+                            isMapped = true;
+                        } else {
+                            bodyBones = new List<HumanBodyBones> { outfitHumanoidBone };
+                        }
+                    } else {
+                        bodyBones = new List<HumanBodyBones>() { outfitHumanoidBone };
+                    }
+                }
+
+                if (!isMapped && bodyBones == null && !NameToBoneMap.TryGetValue(
+                        NormalizeName(targetObjectName), out bodyBones))
                 {
                     continue;
                 }
 
-                foreach (var otherName in bodyBones.SelectMany(bone => BoneToNameMap[bone]))
+                if (!isMapped)
                 {
-                    if (lcNameToXform.TryGetValue(otherName, out var targetObject))
+                    foreach (var bodyBone in bodyBones)
                     {
-                        mappings[child] = targetObject;
-                        unassigned.Remove(targetObject);
-                        lcNameToXform.Remove(otherName.ToLowerInvariant());
-                        break;
+                        if (avatarAnimator != null)
+                        {
+                            var avatarBone = avatarAnimator.GetBoneTransform(bodyBone);
+                            if (avatarBone != null && unassigned.Contains(avatarBone))
+                            {
+                                mappings[child] = avatarBone;
+                                unassigned.Remove(avatarBone);
+                                lcNameToXform.Remove(NormalizeName(avatarBone.gameObject.name));
+                                isMapped = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+
+                if (!isMapped)
+                {
+                    foreach (var otherName in bodyBones.SelectMany(bone => BoneToNameMap[bone]))
+                    {
+                        if (lcNameToXform.TryGetValue(otherName, out var targetObject))
+                        {
+                            mappings[child] = targetObject;
+                            unassigned.Remove(targetObject);
+                            lcNameToXform.Remove(otherName.ToLowerInvariant());
+                            isMapped = true;
+                            break;
+                        }
                     }
                 }
 
@@ -388,7 +445,7 @@ namespace nadena.dev.modular_avatar.core.editor
             return mappings;
         }
 
-        internal static void RenameBonesByHeuristic(ModularAvatarMergeArmature config, List<Transform> skipped = null)
+        internal static void RenameBonesByHeuristic(ModularAvatarMergeArmature config, List<Transform> skipped = null, Dictionary<Transform, HumanBodyBones> outfitHumanoidBones = null, Animator avatarAnimator = null)
         {
             var target = config.mergeTarget.Get(RuntimeUtil.FindAvatarTransformInParents(config.transform));
             if (target == null) return;
@@ -399,7 +456,7 @@ namespace nadena.dev.modular_avatar.core.editor
             
             void Traverse(Transform src, Transform dst)
             {
-                var mappings = AssignBoneMappings(config, src.gameObject, dst.gameObject, skipped: skipped);
+                var mappings = AssignBoneMappings(config, src.gameObject, dst.gameObject, skipped: skipped, outfitHumanoidBones: outfitHumanoidBones, avatarAnimator: avatarAnimator);
 
                 foreach (var pair in mappings)
                 {

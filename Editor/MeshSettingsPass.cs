@@ -1,5 +1,9 @@
-﻿using System.Linq;
+﻿using System;
+using System.Collections.Generic;
+using System.Linq;
+using UnityEditor;
 using UnityEngine;
+using Object = UnityEngine.Object;
 
 namespace nadena.dev.modular_avatar.core.editor
 {
@@ -7,7 +11,7 @@ namespace nadena.dev.modular_avatar.core.editor
     {
         internal static bool NotFinal(this ModularAvatarMeshSettings.InheritMode mode)
         {
-            return mode == ModularAvatarMeshSettings.InheritMode.Inherit;
+            return mode is ModularAvatarMeshSettings.InheritMode.Inherit or ModularAvatarMeshSettings.InheritMode.SetOrInherit;
         }
     }
 
@@ -37,15 +41,45 @@ namespace nadena.dev.modular_avatar.core.editor
             public Bounds Bounds;
         }
 
-        private static bool Inherit(ref ModularAvatarMeshSettings.InheritMode mode,
-            ModularAvatarMeshSettings.InheritMode srcmode)
+        // current Mode is the mode of current value, and the current value is came from MA Mesh Settings of child GameObject
+        // the srcMode is the mode of currently processing MA Mesh Settings, which is the parent component of the current value
+        private static bool ShouldUseSrcValue(
+            ref ModularAvatarMeshSettings.InheritMode currentMode,
+            ModularAvatarMeshSettings.InheritMode srcMode)
         {
-            if (mode != ModularAvatarMeshSettings.InheritMode.Inherit ||
-                srcmode == ModularAvatarMeshSettings.InheritMode.Inherit)
-                return false;
+            switch (currentMode, srcMode)
+            {
+                // invalid cases
+                case (not (ModularAvatarMeshSettings.InheritMode.Set
+                    or ModularAvatarMeshSettings.InheritMode.Inherit
+                    or ModularAvatarMeshSettings.InheritMode.DontSet
+                    or ModularAvatarMeshSettings.InheritMode.SetOrInherit), _):
+                    throw new InvalidOperationException($"Logic failure: invalid InheritMode: {currentMode}");
+                case (_, not (ModularAvatarMeshSettings.InheritMode.Set
+                    or ModularAvatarMeshSettings.InheritMode.Inherit
+                    or ModularAvatarMeshSettings.InheritMode.DontSet
+                    or ModularAvatarMeshSettings.InheritMode.SetOrInherit)):
+                    throw new ArgumentOutOfRangeException(nameof(srcMode), $"Invalid InheritMode: {srcMode}");
 
-            mode = srcmode;
-            return true;
+                // If current value is came from Set or DontSet, it should not be changed
+                case (ModularAvatarMeshSettings.InheritMode.Set, _):
+                case (ModularAvatarMeshSettings.InheritMode.DontSet, _):
+                    return false;
+                // If srcMode is Inherit, it should not be changed
+                case (_, ModularAvatarMeshSettings.InheritMode.Inherit):
+                    return false;
+
+                // If srcMode is DontSet, the value will not be used but mode should be used
+                case (_, ModularAvatarMeshSettings.InheritMode.DontSet):
+                    currentMode = srcMode;
+                    return true;
+
+                // if SrcMode is Set or SetOrInherit, it should be used.
+                case (_, ModularAvatarMeshSettings.InheritMode.Set):
+                case (_, ModularAvatarMeshSettings.InheritMode.SetOrInherit):
+                    currentMode = srcMode;
+                    return true;
+            }
         }
 
         internal static MergedSettings MergeSettings(Transform avatarRoot, Transform referenceObject)
@@ -74,20 +108,20 @@ namespace nadena.dev.modular_avatar.core.editor
                     continue;
                 }
 
-                if (Inherit(ref inheritProbeAnchor, settings.InheritProbeAnchor))
+                if (ShouldUseSrcValue(ref inheritProbeAnchor, settings.InheritProbeAnchor))
                 {
                     merged.ProbeAnchor = settings.ProbeAnchor.Get(settings)?.transform;
                 }
 
-                if (Inherit(ref inheritBounds, settings.InheritBounds))
+                if (ShouldUseSrcValue(ref inheritBounds, settings.InheritBounds))
                 {
                     merged.RootBone = settings.RootBone.Get(settings)?.transform;
                     merged.Bounds = settings.Bounds;
                 }
             } while (current != null && (inheritProbeAnchor.NotFinal() || inheritBounds.NotFinal()));
 
-            merged.SetAnchor = inheritProbeAnchor == ModularAvatarMeshSettings.InheritMode.Set;
-            merged.SetBounds = inheritBounds == ModularAvatarMeshSettings.InheritMode.Set;
+            merged.SetAnchor = inheritProbeAnchor is ModularAvatarMeshSettings.InheritMode.Set or ModularAvatarMeshSettings.InheritMode.SetOrInherit;
+            merged.SetBounds = inheritBounds is ModularAvatarMeshSettings.InheritMode.Set or ModularAvatarMeshSettings.InheritMode.SetOrInherit;
 
             return merged;
         }
@@ -114,9 +148,57 @@ namespace nadena.dev.modular_avatar.core.editor
 
                     if (newMesh) context.SaveAsset(newMesh);
                 }
-                smr.rootBone = settings.RootBone;
-                smr.localBounds = settings.Bounds;
+
+                var settingsRootBone = settings.RootBone;
+                settingsRootBone = settingsRootBone == null ? smr.transform : settingsRootBone;
+                var smrRootBone = smr.rootBone;
+                smrRootBone = smrRootBone == null ? smr.transform : smrRootBone;
+
+                if (IsInverted(smrRootBone) != IsInverted(settingsRootBone))
+                {
+                    smr.rootBone = GetInvertedRootBone(settingsRootBone);
+
+                    var bounds = settings.Bounds;
+                    var center = bounds.center;
+                    center.x *= -1;
+                    bounds.center = center;
+                    smr.localBounds = bounds;
+                }
+                else
+                {
+                    smr.rootBone = settings.RootBone;
+                    smr.localBounds = settings.Bounds;
+                }
             }
+        }
+
+        private bool IsInverted(Transform bone)
+        {
+            var inverseCount = 0;
+
+            var scale = bone.lossyScale;
+            if (scale.x < 0) inverseCount += 1;
+            if (scale.y < 0) inverseCount += 1;
+            if (scale.z < 0) inverseCount += 1;
+
+            return (inverseCount % 2) != 0;
+        }
+        private Dictionary<Transform, Transform> invertedRootBoneCache = new();
+        private Transform GetInvertedRootBone(Transform rootBone)
+        {
+            if (invertedRootBoneCache.TryGetValue(rootBone, out var cache)) { return cache; }
+
+            var invertedRootBone = new GameObject($"{rootBone.gameObject.name}-InvertedRootBone");
+            EditorUtility.CopySerialized(rootBone, invertedRootBone.transform);
+            invertedRootBone.transform.parent = rootBone;
+
+            var transform = invertedRootBone.transform;
+            var scale = transform.localScale;
+            scale.x *= -1;
+            transform.localScale = scale;
+
+            invertedRootBoneCache[rootBone] = transform;
+            return transform;
         }
     }
 }

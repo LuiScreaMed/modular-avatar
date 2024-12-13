@@ -6,13 +6,15 @@ using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
 using BuildContext = nadena.dev.ndmf.BuildContext;
+using Object = UnityEngine.Object;
 
 namespace nadena.dev.modular_avatar.animation
 {
-    using UnityObject = UnityEngine.Object;
+    using UnityObject = Object;
 
     internal class DeepClone
     {
+        private BuildContext _context;
         private bool _isSaved;
         private UnityObject _combined;
 
@@ -20,6 +22,7 @@ namespace nadena.dev.modular_avatar.animation
 
         public DeepClone(BuildContext context)
         {
+            _context = context;
             _isSaved = context.AssetContainer != null && EditorUtility.IsPersistent(context.AssetContainer);
             _combined = context.AssetContainer;
         }
@@ -31,6 +34,8 @@ namespace nadena.dev.modular_avatar.animation
         {
             if (original == null) return null;
             if (cloneMap == null) cloneMap = new Dictionary<UnityObject, UnityObject>();
+
+            using var scope = _context.OpenSerializationScope();
 
             Func<UnityObject, UnityObject> visitor = null;
             if (basePath != null)
@@ -49,6 +54,7 @@ namespace nadena.dev.modular_avatar.animation
                 case AnimatorStateMachine _:
                 case AnimatorTransitionBase _:
                 case StateMachineBehaviour _:
+                case AvatarMask _:
                     break; // We want to clone these types
                     
                 case AudioClip _: //Used in VRC Animator Play Audio State Behavior
@@ -91,6 +97,11 @@ namespace nadena.dev.modular_avatar.animation
                 {
                     ObjectRegistry.RegisterReplacedObject(original, obj);
                 }
+                
+                if (_isSaved && !EditorUtility.IsPersistent(obj))
+                {
+                    scope.SaveAsset(obj);
+                }
 
                 return (T)obj;
             }
@@ -111,7 +122,7 @@ namespace nadena.dev.modular_avatar.animation
 
             if (_isSaved)
             {
-                AssetDatabase.AddObjectToAsset(obj, _combined);
+                scope.SaveAsset(obj);
             }
 
             SerializedObject so = new SerializedObject(obj);
@@ -125,8 +136,12 @@ namespace nadena.dev.modular_avatar.animation
                 {
                     case SerializedPropertyType.ObjectReference:
                     {
-                        var newObj = DoClone(prop.objectReferenceValue, basePath, cloneMap);
-                        prop.objectReferenceValue = newObj;
+                        if (prop.objectReferenceValue != null && prop.objectReferenceValue != obj)
+                        {
+                            var newObj = DoClone(prop.objectReferenceValue, basePath, cloneMap);
+                            prop.objectReferenceValue = newObj;
+                        }
+
                         break;
                     }
                     // Iterating strings can get super slow...
@@ -141,8 +156,74 @@ namespace nadena.dev.modular_avatar.animation
             return (T)obj;
         }
 
+        // internal for testing
+        internal static AvatarMask CloneAvatarMask(AvatarMask mask, string basePath)
+        {
+            if (basePath.EndsWith("/")) basePath = basePath.Substring(0, basePath.Length - 1);
+
+            var newMask = new AvatarMask();
+
+            // Transfer first the humanoid mask data
+            EditorUtility.CopySerialized(mask, newMask);
+
+            var srcSo = new SerializedObject(mask);
+            var dstSo = new SerializedObject(newMask);
+            var srcElements = srcSo.FindProperty("m_Elements");
+
+            if (basePath == "" || srcElements.arraySize == 0) return newMask; // no changes required
+
+            // We now need to prefix the elements of basePath (with weight zero)
+
+            var newElements = new List<string>();
+
+            var accum = "";
+            foreach (var element in basePath.Split("/"))
+            {
+                if (accum != "") accum += "/";
+                accum += element;
+
+                newElements.Add(accum);
+            }
+
+            var dstElements = dstSo.FindProperty("m_Elements");
+
+            // We'll need to create new array elements by using DuplicateCommand. We'll then rewrite the whole
+            // list to keep things in traversal order.
+            for (var i = 0; i < newElements.Count; i++) dstElements.GetArrayElementAtIndex(0).DuplicateCommand();
+
+            var totalElements = srcElements.arraySize + newElements.Count;
+            for (var i = 0; i < totalElements; i++)
+            {
+                var dstElem = dstElements.GetArrayElementAtIndex(i);
+                var dstPath = dstElem.FindPropertyRelative("m_Path");
+                var dstWeight = dstElem.FindPropertyRelative("m_Weight");
+
+                var srcIndex = i - newElements.Count;
+                if (srcIndex < 0)
+                {
+                    dstPath.stringValue = newElements[i];
+                    dstWeight.floatValue = 0;
+                }
+                else
+                {
+                    var srcElem = srcElements.GetArrayElementAtIndex(srcIndex);
+                    dstPath.stringValue = basePath + "/" + srcElem.FindPropertyRelative("m_Path").stringValue;
+                    dstWeight.floatValue = srcElem.FindPropertyRelative("m_Weight").floatValue;
+                }
+            }
+
+            dstSo.ApplyModifiedPropertiesWithoutUndo();
+
+            return newMask;
+        }
+
         private UnityObject CloneWithPathMapping(UnityObject o, string basePath)
         {
+            if (o is AvatarMask mask)
+            {
+                return CloneAvatarMask(mask, basePath);
+            }
+
             if (o is AnimationClip clip)
             {
                 // We'll always rebase if the asset is non-persistent, because we can't reference a nonpersistent asset
@@ -154,14 +235,17 @@ namespace nadena.dev.modular_avatar.animation
                 newClip.name = "rebased " + clip.name;
                 if (_isSaved)
                 {
-                    AssetDatabase.AddObjectToAsset(newClip, _combined);
+                    _context.AssetSaver.SaveAsset(newClip);
                 }
 
                 foreach (var binding in AnimationUtility.GetCurveBindings(clip))
                 {
                     var newBinding = binding;
                     newBinding.path = MapPath(binding, basePath);
-                    newClip.SetCurve(newBinding.path, newBinding.type, newBinding.propertyName,
+                    // https://github.com/bdunderscore/modular-avatar/issues/950
+                    // It's reported that sometimes using SetObjectReferenceCurve right after SetCurve might cause the
+                    // curves to be forgotten; use SetEditorCurve instead.
+                    AnimationUtility.SetEditorCurve(newClip, newBinding,
                         AnimationUtility.GetEditorCurve(clip, binding));
                 }
 

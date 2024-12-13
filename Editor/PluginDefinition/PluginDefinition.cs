@@ -2,7 +2,6 @@
 
 using System;
 using nadena.dev.modular_avatar.animation;
-using nadena.dev.modular_avatar.core.ArmatureAwase;
 using nadena.dev.modular_avatar.core.editor.plugin;
 using nadena.dev.modular_avatar.editor.ErrorReporting;
 using nadena.dev.ndmf;
@@ -48,26 +47,39 @@ namespace nadena.dev.modular_avatar.core.editor.plugin
                 seq.Run(MeshSettingsPluginPass.Instance);
                 seq.Run(ScaleAdjusterPass.Instance).PreviewingWith(new ScaleAdjusterPreview());
 #if MA_VRCSDK3_AVATARS
+                seq.Run(ReactiveObjectPrepass.Instance);
                 seq.Run(RenameParametersPluginPass.Instance);
+                seq.Run(ParameterAssignerPass.Instance);
                 seq.Run(MergeBlendTreePass.Instance);
                 seq.Run(MergeAnimatorPluginPass.Instance);
                 seq.Run(ApplyAnimatorDefaultValuesPass.Instance);
-                seq.Run(MenuInstallPluginPass.Instance);
 #endif
                 seq.WithRequiredExtension(typeof(AnimationServicesContext), _s2 =>
                 {
-                    seq.Run("Shape Changer", ctx => new ShapeChangerPass(ctx).Execute())
-                        .PreviewingWith(new ShapeChangerPreview());
+#if MA_VRCSDK3_AVATARS
+                    seq.Run("Shape Changer", ctx => new ReactiveObjectPass(ctx).Execute())
+                        .PreviewingWith(new ShapeChangerPreview(), new ObjectSwitcherPreview(), new MaterialSetterPreview());
+
+                    // TODO: We currently run this above MergeArmaturePlugin, because Merge Armature might destroy
+                    // game objects which contain Menu Installers. It'd probably be better however to teach Merge Armature
+                    // to retain those objects? maybe?
+                    seq.Run(MenuInstallPluginPass.Instance);
+#endif
+
                     seq.Run(MergeArmaturePluginPass.Instance);
                     seq.Run(BoneProxyPluginPass.Instance);
+#if MA_VRCSDK3_AVATARS
                     seq.Run(VisibleHeadAccessoryPluginPass.Instance);
+#endif
                     seq.Run("World Fixed Object",
                         ctx => new WorldFixedObjectProcessor().Process(ctx)
                     );
                     seq.Run(ReplaceObjectPluginPass.Instance);
 #if MA_VRCSDK3_AVATARS
                     seq.Run(BlendshapeSyncAnimationPluginPass.Instance);
+                    seq.Run(GameObjectDelayDisablePass.Instance);
 #endif
+                    seq.Run(ConstraintConverterPass.Instance);
                 });
 #if MA_VRCSDK3_AVATARS
                 seq.Run(PhysbonesBlockerPluginPass.Instance);
@@ -76,20 +88,10 @@ namespace nadena.dev.modular_avatar.core.editor.plugin
                     var maContext = ctx.Extension<ModularAvatarContext>().BuildContext;
                     FixupExpressionsMenuPass.FixupExpressionsMenu(maContext);
                 });
+                seq.Run(SyncParameterSequencePass.Instance);
 #endif
-                seq.Run("Rebind humanoid avatar", ctx =>
-                {
-                    // workaround problem with avatar matching
-                    // https://github.com/bdunderscore/modular-avatar/issues/430
-                    var animator = ctx.AvatarRootObject.GetComponent<Animator>();
-                    if (animator)
-                    {
-                        var avatar = animator.avatar;
-                        animator.avatar = null;
-                        // ReSharper disable once Unity.InefficientPropertyAccess
-                        animator.avatar = avatar;
-                    }
-                });
+                seq.Run(RemoveVertexColorPass.Instance).PreviewingWith(new RemoveVertexColorPreview());
+                seq.Run(RebindHumanoidAvatarPass.Instance);
                 seq.Run("Purge ModularAvatar components", ctx =>
                 {
                     foreach (var component in ctx.AvatarRootTransform.GetComponentsInChildren<AvatarTagComponent>(true))
@@ -215,6 +217,7 @@ namespace nadena.dev.modular_avatar.core.editor.plugin
         }
     }
 
+#if MA_VRCSDK3_AVATARS
     class VisibleHeadAccessoryPluginPass : MAPass<VisibleHeadAccessoryPluginPass>
     {
         protected override void Execute(ndmf.BuildContext context)
@@ -222,6 +225,7 @@ namespace nadena.dev.modular_avatar.core.editor.plugin
             new VisibleHeadAccessoryProcessor(MAContext(context)).Process();
         }
     }
+#endif
 
     class ReplaceObjectPluginPass : MAPass<ReplaceObjectPluginPass>
     {
@@ -248,6 +252,14 @@ namespace nadena.dev.modular_avatar.core.editor.plugin
         }
     }
 #endif
+
+    class RebindHumanoidAvatarPass : MAPass<RebindHumanoidAvatarPass>
+    {
+        protected override void Execute(ndmf.BuildContext context)
+        {
+            new RebindHumanoidAvatar(context).Process();
+        }
+    }
 
     class GCGameObjectsPluginPass : MAPass<GCGameObjectsPluginPass>
     {

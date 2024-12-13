@@ -29,6 +29,9 @@
   --docusaurus-highlighted-code-line-bg: rgba(0, 0, 0, 0.3);
 }
 
+:not([data-theme='dark']) .navbar__logo img {
+  filter: drop-shadow(1.5px 1.5px 0.1rem #00000090);
+}
 
 .install-btn-container {
   position: relative;
@@ -61,4 +64,24 @@
 img {
   aspect-ratio: auto;
   height: auto;
+}
+
+.discordLink {
+  display: block;
+  height: 2em;
+  object-fit: cover;
+  padding: 0.1em;
+}
+
+img.button {
+  /*aspect-ratio: auto;*/
+
+  height: 100%;
+  object-fit: cover;
+  padding: 0;
+  margin: 0;
+}
+
+.button-group + .button-group {
+  margin-top: 1em;
 }

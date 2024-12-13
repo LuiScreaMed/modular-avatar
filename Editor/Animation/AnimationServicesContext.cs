@@ -7,6 +7,9 @@ using nadena.dev.ndmf;
 using UnityEditor;
 using UnityEditor.Animations;
 using UnityEngine;
+#if MA_VRCSDK3_AVATARS
+using VRC.SDK3.Avatars.Components;
+#endif
 
 #endregion
 
@@ -29,6 +32,8 @@ namespace nadena.dev.modular_avatar.animation
         private BuildContext _context;
         private AnimationDatabase _animationDatabase;
         private PathMappings _pathMappings;
+        private ReadableProperty _readableProperty;
+        
         private Dictionary<GameObject, string> _selfProxies = new();
 
         public void OnActivate(BuildContext context)
@@ -40,6 +45,8 @@ namespace nadena.dev.modular_avatar.animation
 
             _pathMappings = new PathMappings();
             _pathMappings.OnActivate(context, _animationDatabase);
+
+            _readableProperty = new ReadableProperty(_context, _animationDatabase, this);
         }
 
         public void OnDeactivate(BuildContext context)
@@ -79,95 +86,40 @@ namespace nadena.dev.modular_avatar.animation
             }
         }
 
-        /// <summary>
-        /// Returns a parameter which proxies the "activeSelf" state of the specified GameObject.
-        /// </summary>
-        /// <param name="obj"></param>
-        /// <param name="paramName"></param>
-        /// <returns></returns>
-        /// <exception cref="NotImplementedException"></exception>
-        public bool TryGetActiveSelfProxy(GameObject obj, out string paramName)
+        public IEnumerable<(EditorCurveBinding, string)> BoundReadableProperties => _readableProperty.BoundProperties;
+
+        // HACK: This is a temporary crutch until we rework the entire animator services system
+        public void AddPropertyDefinition(AnimatorControllerParameter paramDef)
         {
-            if (_selfProxies.TryGetValue(obj, out paramName)) return !string.IsNullOrEmpty(paramName);
+#if MA_VRCSDK3_AVATARS
+            if (!_context.AvatarDescriptor) return;
 
-            var path = PathMappings.GetObjectIdentifier(obj);
-            var clips = AnimationDatabase.ClipsForPath(path);
-            if (clips == null || clips.IsEmpty)
-            {
-                _selfProxies[obj] = "";
-                return false;
-            }
+            var fx = (AnimatorController)
+                _context.AvatarDescriptor.baseAnimationLayers
+                .First(l => l.type == VRCAvatarDescriptor.AnimLayerType.FX)
+                .animatorController;
 
-            var iid = obj.GetInstanceID();
-            paramName = $"_MA/ActiveSelf/{iid}";
-
-            var binding = EditorCurveBinding.FloatCurve(path, typeof(GameObject), "m_IsActive");
-
-            bool hadAnyClip = false;
-            foreach (var clip in clips)
-            {
-                Motion newMotion = ProcessActiveSelf(clip.CurrentClip, paramName, binding);
-                if (newMotion != clip.CurrentClip)
-                {
-                    clip.SetCurrentNoInvalidate(newMotion);
-                    hadAnyClip = true;
-                }
-            }
-
-            if (hadAnyClip)
-            {
-                _selfProxies[obj] = paramName;
-                return true;
-            }
-            else
-            {
-                _selfProxies[obj] = "";
-                return false;
-            }
+            fx.parameters = fx.parameters.Concat(new[] { paramDef }).ToArray();
+#endif
         }
 
-        private Motion ProcessActiveSelf(Motion motion, string paramName, EditorCurveBinding binding)
+        public string GetActiveSelfProxy(GameObject obj)
         {
-            if (motion is AnimationClip clip)
-            {
-                var curve = AnimationUtility.GetEditorCurve(clip, binding);
-                if (curve == null) return motion;
+            if (_selfProxies.TryGetValue(obj, out var paramName) && !string.IsNullOrEmpty(paramName)) return paramName;
 
-                var newClip = new AnimationClip();
-                EditorUtility.CopySerialized(motion, newClip);
+            var path = PathMappings.GetObjectIdentifier(obj);
 
-                newClip.SetCurve("", typeof(Animator), paramName, curve);
-                return newClip;
-            }
-            else if (motion is BlendTree bt)
-            {
-                bool anyChanged = false;
+            paramName = _readableProperty.ForActiveSelf(path);
+            _selfProxies[obj] = paramName;
 
-                var motions = bt.children.Select(c => // c is struct ChildMotion
-                {
-                    var newMotion = ProcessActiveSelf(c.motion, paramName, binding);
-                    anyChanged |= newMotion != c.motion;
-                    c.motion = newMotion;
-                    return c;
-                }).ToArray();
+            return paramName;
+        }
 
-                if (anyChanged)
-                {
-                    var newBt = new BlendTree();
-                    EditorUtility.CopySerialized(bt, newBt);
-
-                    newBt.children = motions;
-                    return newBt;
-                }
-                else
-                {
-                    return bt;
-                }
-            }
-            else
-            {
-                return motion;
-            }
+        public bool ObjectHasAnimations(GameObject obj)
+        {
+            var path = PathMappings.GetObjectIdentifier(obj);
+            var clips = AnimationDatabase.ClipsForPath(path);
+            return clips != null && !clips.IsEmpty;
         }
     }
 }

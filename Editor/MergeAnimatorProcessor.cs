@@ -65,6 +65,7 @@ namespace nadena.dev.modular_avatar.core.editor
             mergeSessions.Clear();
 
             var descriptor = avatarGameObject.GetComponent<VRCAvatarDescriptor>();
+            if (!descriptor) return;
 
             if (descriptor.baseAnimationLayers != null) InitSessions(descriptor.baseAnimationLayers);
             if (descriptor.specialAnimationLayers != null) InitSessions(descriptor.specialAnimationLayers);
@@ -150,7 +151,9 @@ namespace nadena.dev.modular_avatar.core.editor
                 basePath = "";
             }
 
-            bool? writeDefaults = merge.matchAvatarWriteDefaults ? writeDefaults_[merge.layerType] : null;
+            var writeDefaults = merge.matchAvatarWriteDefaults
+                ? writeDefaults_.GetValueOrDefault(merge.layerType)
+                : null;
             var controller = _context.ConvertAnimatorController(merge.animator);
             session.AddController(basePath, controller, writeDefaults);
 
@@ -234,14 +237,28 @@ namespace nadena.dev.modular_avatar.core.editor
             }
         }
 
-        private bool? ProbeWriteDefaults(AnimatorController controller)
+        internal static bool? ProbeWriteDefaults(AnimatorController controller)
         {
+            if (controller == null) return null;
+            
             bool hasWDOn = false;
             bool hasWDOff = false;
 
             var stateMachineQueue = new Queue<AnimatorStateMachine>();
             foreach (var layer in controller.layers)
             {
+                // Special case: A layer with a single state, which contains a blend tree, is ignored for WD analysis.
+                // This is because WD ON blend trees have different behavior from most WD ON states, and can be safely
+                // used in a WD OFF animator.
+
+                if (layer.stateMachine.states.Length == 1
+                    && layer.stateMachine.states[0].state.motion is BlendTree
+                    && layer.stateMachine.stateMachines.Length == 0
+                   )
+                {
+                    continue;
+                }
+                
                 stateMachineQueue.Enqueue(layer.stateMachine);
             }
 

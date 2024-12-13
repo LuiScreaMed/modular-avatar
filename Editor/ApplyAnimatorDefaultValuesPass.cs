@@ -1,4 +1,5 @@
-﻿#region
+﻿#if MA_VRCSDK3_AVATARS
+#region
 
 using System;
 using System.Collections.Immutable;
@@ -40,7 +41,7 @@ namespace nadena.dev.modular_avatar.core.editor
                     switch (parameters[i].type)
                     {
                         case AnimatorControllerParameterType.Bool:
-                            parameters[i].defaultBool = defaultValue > 0.5f;
+                            parameters[i].defaultBool = defaultValue != 0.0f;
                             break;
                         case AnimatorControllerParameterType.Int:
                             parameters[i].defaultInt = Mathf.RoundToInt(defaultValue);
@@ -58,3 +59,4 @@ namespace nadena.dev.modular_avatar.core.editor
         }
     }
 }
+#endif

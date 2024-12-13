@@ -1,116 +1,106 @@
-﻿VisualElement {}
+﻿#ListViewContainer {
+    margin-top: 4px;
+    max-height: 500px;
+}
 
-.ParameterConfig__isPrefix_true .ParameterConfig__isPrefix_falseOnly {
+.horizontal {
+    flex-direction: row;
+    align-items: center;
+    justify-content: space-between;
+    margin: 1px 0;
+}
+
+.horizontal > * {
+    height: 18px;
+    margin: 0 1px;
+}
+
+.horizontal > Label {
+    height: auto;
+}
+
+.horizontal > PropertyField > * {
+    margin: 0;
+}
+
+#f-name {
+    flex-grow: 1;
+}
+
+#f-sync-type {
     display: none;
 }
 
-.ParameterConfig__isPrefix_false .ParameterConfig__isPrefix_trueOnly {
+.st-ty-Not-Synced .st-anim-only__hide {
     display: none;
 }
 
-.ParameterConfig__animatorOnly_true .ParameterConfig__animatorOnly_falseOnly {
+#f-is-prefix {
     display: none;
 }
 
-.ParameterConfig__animatorOnly_false .ParameterConfig__animatorOnly_trueOnly {
+.st-pb-prefix .st-pb-prefix__hide {
     display: none;
 }
 
-#defaultValueGroup {
+#f-remap-to, #f-remap-to-disabled {
+    flex-grow: 1;
+}
+
+#f-remap-to-placeholder {
+    width: 100%;
+    height: 100%;
+    color: rgba(255, 255, 255, 0.4);
+}
+
+#f-internal-parameter {
+    margin-left: 3px;
+}
+
+#remap-to-group {
     display: flex;
-    flex-direction: row;
-}
-
-#defaultValueGroup > .unity-base-field__input {
-    flex-grow: 1;
-}
-#defaultValueGroup > .unity-base-field__input > * {
     flex-grow: 1;
 }
 
-#defaultValueProp > FloatField > FloatInput {
+#remap-to-group-disabled {
+    display: none;
+    flex-grow: 1;
+}
+
+.st-internal-parameter #remap-to-group {
     display: none;
 }
 
-#ParameterConfigRoot > DefaultValueField {
+.st-internal-parameter #remap-to-group-disabled {
+    display: flex;
+}
+
+.horizontal > .horizontal {
+    flex-shrink: 0;
+    margin: 0;
+}
+
+DefaultValueField > * {
+    width: 60px;
+    height: 100%;
+    margin: 0;
+}
+
+#f-local-only {
     display: none;
-}
-
-#innerDefaultValueField {
-    flex-grow: 1;
-}
-
-DefaultValueField > TextField {
-    flex-grow: 1;
-    margin-left: 0;
-}
-
-#MiniDisplay {
-    flex-direction: row;
-    align-self: flex-end;
-}
-
-#MiniDisplay > * {
-    align-self: center;
-}
-
-#MiniDisplay > DefaultValueField {
-    max-width: 60px;
-    flex-grow: 0;
-    margin-right: 10px;
-}
-
-
-#MiniDisplay > DefaultValueField TextElement {
-    margin-left: 0px;
-}
-
-
-#MiniDisplay > Toggle {
-    margin-right: 5px;
-}
-
-#ParameterConfigRoot > Toggle .unity-toggle__text {
-    flex-grow: 1;
-}
-
-#UnregisteredParameters #unity-list-view__footer {
-    display: none;
-}
-
-#UnregisteredParameters Label {
-    align-self: center;
 }
 
 .DetectedParameter {
     flex-direction: row;
-    margin-top: 2px;
-    margin-bottom: 2px;
 }
 
 .DetectedParameter > Label {
     flex-grow: 1;
+    align-self: center;
 }
 
 .SourceButton {
-    flex-grow:0;
-    align-self: flex-end;
-    height: 24px;
     width: 24px;
+    height: 24px;
     padding: 1px;
-}
-
-/* Vertically align the reorder handle with the foldout chevron */
-#Parameters #unity-list-view__reorderable-handle {
-    padding-top: 10px;
-}
-
-#ParameterConfigRoot .unity-foldout__input > #unity-checkmark {
-    margin-top: 4px;
-    align-self: flex-start;
-}
-
-#ParameterConfigRoot .unity-foldout__input > Label {
-    margin-top: 4px;
-    align-self: flex-start;
 }

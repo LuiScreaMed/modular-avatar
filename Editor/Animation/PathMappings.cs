@@ -6,16 +6,17 @@ using System.Linq;
 using nadena.dev.ndmf;
 using nadena.dev.ndmf.util;
 using UnityEditor;
+using UnityEditor.Animations;
 using UnityEngine;
-using Object = UnityEngine.Object;
+using UnityEngine.Profiling;
+#if MA_VRCSDK3_AVATARS_3_5_2_OR_NEWER
+#endif
 
 #endregion
 
 namespace nadena.dev.modular_avatar.animation
 {
     #region
-
-    using UnityObject = Object;
 
     #endregion
 
@@ -34,6 +35,7 @@ namespace nadena.dev.modular_avatar.animation
         private HashSet<GameObject> _transformLookthroughObjects = new HashSet<GameObject>();
         private ImmutableDictionary<string, string> _originalPathToMappedPath = null;
         private ImmutableDictionary<string, string> _transformOriginalPathToMappedPath = null;
+        private ImmutableDictionary<string, GameObject> _pathToObject = null;
 
         internal void OnActivate(BuildContext context, AnimationDatabase animationDatabase)
         {
@@ -52,6 +54,7 @@ namespace nadena.dev.modular_avatar.animation
         {
             _originalPathToMappedPath = null;
             _transformOriginalPathToMappedPath = null;
+            _pathToObject = null;
         }
 
         /// <summary>
@@ -248,7 +251,10 @@ namespace nadena.dev.modular_avatar.animation
             {
                 var newBinding = binding;
                 newBinding.path = MapPath(binding);
-                newClip.SetCurve(newBinding.path, newBinding.type, newBinding.propertyName,
+                // https://github.com/bdunderscore/modular-avatar/issues/950
+                // It's reported that sometimes using SetObjectReferenceCurve right after SetCurve might cause the
+                // curves to be forgotten; use SetEditorCurve instead.
+                AnimationUtility.SetEditorCurve(newClip, newBinding,
                     AnimationUtility.GetEditorCurve(originalClip, binding));
             }
 
@@ -260,10 +266,10 @@ namespace nadena.dev.modular_avatar.animation
                     AnimationUtility.GetObjectReferenceCurve(originalClip, objBinding));
             }
 
-            newClip.wrapMode = newClip.wrapMode;
-            newClip.legacy = newClip.legacy;
-            newClip.frameRate = newClip.frameRate;
-            newClip.localBounds = newClip.localBounds;
+            newClip.wrapMode = originalClip.wrapMode;
+            newClip.legacy = originalClip.legacy;
+            newClip.frameRate = originalClip.frameRate;
+            newClip.localBounds = originalClip.localBounds;
             AnimationUtility.SetAnimationClipSettings(newClip, AnimationUtility.GetAnimationClipSettings(originalClip));
 
             if (clipCache != null)
@@ -274,10 +280,68 @@ namespace nadena.dev.modular_avatar.animation
             return newClip;
         }
 
+        private void ApplyMappingsToAvatarMask(AvatarMask mask)
+        {
+            if (mask == null) return;
+
+            var maskSo = new SerializedObject(mask);
+
+            var seenTransforms = new Dictionary<string, float>();
+            var transformOrder = new List<string>();
+            var m_Elements = maskSo.FindProperty("m_Elements");
+            var elementCount = m_Elements.arraySize;
+
+            for (var i = 0; i < elementCount; i++)
+            {
+                var element = m_Elements.GetArrayElementAtIndex(i);
+                var path = element.FindPropertyRelative("m_Path").stringValue;
+                var weight = element.FindPropertyRelative("m_Weight").floatValue;
+
+                path = MapPath(path);
+
+                // ensure all parent elements are present
+                EnsureParentsPresent(path);
+
+                if (!seenTransforms.ContainsKey(path)) transformOrder.Add(path);
+                seenTransforms[path] = weight;
+            }
+
+            transformOrder.Sort();
+            m_Elements.arraySize = transformOrder.Count;
+
+            for (var i = 0; i < transformOrder.Count; i++)
+            {
+                var element = m_Elements.GetArrayElementAtIndex(i);
+                var path = transformOrder[i];
+
+                element.FindPropertyRelative("m_Path").stringValue = path;
+                element.FindPropertyRelative("m_Weight").floatValue = seenTransforms[path];
+            }
+
+            maskSo.ApplyModifiedPropertiesWithoutUndo();
+
+            void EnsureParentsPresent(string path)
+            {
+                var nextSlash = -1;
+
+                while ((nextSlash = path.IndexOf('/', nextSlash + 1)) != -1)
+                {
+                    var parentPath = path.Substring(0, nextSlash);
+                    if (!seenTransforms.ContainsKey(parentPath))
+                    {
+                        seenTransforms[parentPath] = 0;
+                        transformOrder.Add(parentPath);
+                    }
+                }
+            }
+        }
+
         internal void OnDeactivate(BuildContext context)
         {
+            Profiler.BeginSample("PathMappings.OnDeactivate");
             Dictionary<AnimationClip, AnimationClip> clipCache = new Dictionary<AnimationClip, AnimationClip>();
-
+            
+            Profiler.BeginSample("ApplyMappingsToClip");
             _animationDatabase.ForeachClip(holder =>
             {
                 if (holder.CurrentClip is AnimationClip clip)
@@ -285,10 +349,69 @@ namespace nadena.dev.modular_avatar.animation
                     holder.CurrentClip = ApplyMappingsToClip(clip, clipCache);
                 }
             });
+            Profiler.EndSample();
 
+#if MA_VRCSDK3_AVATARS_3_5_2_OR_NEWER
+            Profiler.BeginSample("MapPlayAudio");
+            _animationDatabase.ForeachPlayAudio(playAudio =>
+            {
+                if (playAudio == null) return;
+                playAudio.SourcePath = MapPath(playAudio.SourcePath, true);
+            });
+            Profiler.EndSample();
+#endif
+
+            Profiler.BeginSample("InvokeIOnCommitObjectRenamesCallbacks");
             foreach (var listener in context.AvatarRootObject.GetComponentsInChildren<IOnCommitObjectRenames>())
             {
                 listener.OnCommitObjectRenames(context, this);
+            }
+            Profiler.EndSample();
+
+#if MA_VRCSDK3_AVATARS
+            if (context.AvatarDescriptor)
+            {
+                var layers = context.AvatarDescriptor.baseAnimationLayers
+                    .Concat(context.AvatarDescriptor.specialAnimationLayers);
+
+                Profiler.BeginSample("ApplyMappingsToAvatarMasks");
+                foreach (var layer in layers)
+                {
+                    ApplyMappingsToAvatarMask(layer.mask);
+
+                    if (layer.animatorController is AnimatorController ac)
+                        // By this point, all AnimationOverrideControllers have been collapsed into an ephemeral
+                        // AnimatorController so we can safely modify the controller in-place.
+                        foreach (var acLayer in ac.layers)
+                            ApplyMappingsToAvatarMask(acLayer.avatarMask);
+                }
+                Profiler.EndSample();
+            }
+#endif
+            
+            Profiler.EndSample();
+        }
+
+        public GameObject PathToObject(string path)
+        {
+            if (_pathToObject == null)
+            {
+                var builder = ImmutableDictionary.CreateBuilder<string, GameObject>();
+
+                foreach (var kvp in _objectToOriginalPaths)
+                foreach (var p in kvp.Value)
+                    builder[p] = kvp.Key;
+
+                _pathToObject = builder.ToImmutable();
+            }
+            
+            if (_pathToObject.TryGetValue(path, out var obj))
+            {
+                return obj;
+            }
+            else
+            {
+                return null;
             }
         }
     }

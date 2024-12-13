@@ -290,6 +290,61 @@ namespace modular_avatar_tests.RenameParametersTests
                 });
             }
         }
+
+        [Test]
+        public void RecursiveRenameTest()
+        {
+            var prefab = CreatePrefab("RecursiveRenameTest.prefab");
+            
+            AvatarProcessor.ProcessAvatar(prefab);
+
+            var fx = (AnimatorController) FindFxController(prefab).animatorController;
+            
+            Assert.IsFalse(fx.parameters.Any(p => p.name.StartsWith("Hoge")));
+            var fuga = fx.parameters.First(p => p.name.StartsWith("Fuga"));
+            Assert.IsFalse(fx.parameters.Any(p => p.name.StartsWith("Fuga") && p.name != fuga.name));
+            
+            Assert.AreNotEqual(fuga.name, "Fuga"); // should be auto-renamed
+        }
+
+        [Test]
+        public void AnimatorOnlyAndLocalParameterShouldNotSync()
+        {
+            var root = CreateRoot("x");
+            
+            var c1 = CreateChild(root, "c1");
+            var c2 = CreateChild(root, "c2");
+            
+            var p1 = c1.AddComponent<ModularAvatarParameters>();
+            var p2 = c2.AddComponent<ModularAvatarParameters>();
+
+            p1.parameters = new()
+            {
+                new()
+                {
+                    nameOrPrefix = "a",
+                    syncType = ParameterSyncType.NotSynced,
+                    localOnly = false
+                }
+            };
+            p2.parameters = new()
+            {
+                new()
+                {
+                    nameOrPrefix = "a",
+                    syncType = ParameterSyncType.Int,
+                    localOnly = true
+                }
+            };
+            
+            AvatarProcessor.ProcessAvatar(root);
+            
+            var expParams = root.GetComponent<VRCAvatarDescriptor>().expressionParameters.parameters
+                .Select(p => new KeyValuePair<string, VRCExpressionParameters.Parameter>(p.name, p))
+                .ToImmutableDictionary();
+            
+            Assert.IsFalse(expParams["a"].networkSynced);
+        }
     }
 }
 

@@ -206,14 +206,40 @@ namespace nadena.dev.modular_avatar.core.editor
 
                         if (source is MenuNodesUnder nodesUnder)
                         {
+                            GUILayout.BeginHorizontal();
                             if (GUILayout.Button(G("menuitem.misc.add_item")))
                             {
                                 var newChild = new GameObject();
                                 newChild.name = "New item";
                                 newChild.transform.SetParent(nodesUnder.root.transform, false);
-                                newChild.AddComponent<ModularAvatarMenuItem>();
+
+                                var mami = newChild.AddComponent<ModularAvatarMenuItem>();
+                                mami.InitSettings();
+
                                 Undo.RegisterCreatedObjectUndo(newChild, "Added menu item");
                             }
+
+                            if (GUILayout.Button(G("menuitem.misc.add_toggle")))
+                            {
+                                var newChild = new GameObject();
+                                newChild.name = "New toggle";
+                                newChild.transform.SetParent(nodesUnder.root.transform, false);
+                                
+                                var mami = newChild.AddComponent<ModularAvatarMenuItem>();
+                                mami.InitSettings();
+                                mami.Control = new VRCExpressionsMenu.Control()
+                                {
+                                    type = VRCExpressionsMenu.Control.ControlType.Toggle,
+                                    value = 1,
+                                };
+
+                                newChild.AddComponent<ModularAvatarObjectToggle>();
+
+                                Selection.activeObject = newChild;
+                                Undo.RegisterCreatedObjectUndo(newChild, "Added menu toggle");
+                            }
+                            
+                            GUILayout.EndHorizontal();
                         }
                     }
                 }
